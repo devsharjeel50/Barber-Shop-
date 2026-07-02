@@ -56,26 +56,21 @@ export default function App() {
   const [notifications, setNotifications] = useState<SystemNotification[]>([]);
 
   // Simulator Access States
-  const [userRole, setUserRole] = useState<UserRole>('Admin'); // 'Admin' | 'Staff' | 'Receptionist'
+  const [userRole, setUserRole] = useState<UserRole>('Staff'); // Default secure access role: Staff (requires pin '1955' to go Admin)
   const [isOffline, setIsOffline] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    const cachedTheme = localStorage.getItem('barber_theme');
+    if (cachedTheme === 'dark') return true;
+    if (cachedTheme === 'light') return false;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
 
   // Counter of offline ledger records waiting for online network
   const [syncPendingCount, setSyncPendingCount] = useState(0);
 
   // --- INITIAL COMPILATION ---
   useEffect(() => {
-    // 1. Theme Configuration
-    const cachedTheme = localStorage.getItem('barber_theme');
-    if (cachedTheme === 'dark' || (!cachedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      setDarkMode(true);
-      document.documentElement.classList.add('dark');
-    } else {
-      setDarkMode(false);
-      document.documentElement.classList.remove('dark');
-    }
-
-    // 2. Fetch or seed database from localStorage
+    // 1. Fetch or seed database from localStorage
     const storedCustomers = localStorage.getItem('barber_customers');
     if (storedCustomers) setCustomers(JSON.parse(storedCustomers));
     else {
@@ -209,11 +204,13 @@ export default function App() {
 
   // --- ACTION: REGISTER CUSTOMER ---
   const addCustomer = (custData: Omit<Customer, 'id' | 'totalSpent' | 'createdAt'>) => {
+    const now = new Date();
+    const localDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const newCust: Customer = {
       ...custData,
       id: 'c_' + Date.now(),
       totalSpent: 0,
-      createdAt: new Date().toISOString().split('T')[0],
+      createdAt: localDateStr,
     };
 
     const updated = [newCust, ...customers];
@@ -224,7 +221,7 @@ export default function App() {
   // --- ACTION: LOG BILL DIRECT CHECKOUT ---
   const addPayment = (payData: Omit<Payment, 'id' | 'date' | 'time'>) => {
     const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 
     const newPayment: Payment = {
@@ -306,6 +303,15 @@ export default function App() {
     } else {
       triggerNotification('Schedule Updated', `Appointment set status to: ${status.toUpperCase()}`, 'info');
     }
+  };
+
+  // --- ACTION: DELETE APPOINTMENT ---
+  const deleteAppointment = (id: string) => {
+    const appt = appointments.find(a => a.id === id);
+    const updated = appointments.filter(a => a.id !== id);
+    setAppointments(updated);
+    localStorage.setItem('barber_appointments', JSON.stringify(updated));
+    triggerNotification('Appointment Deleted', `Appointment for ${appt?.customerName || 'customer'} has been permanently deleted.`, 'alert');
   };
 
   // --- ACTION: INSERT SERVICE CATALOG MENU ---
@@ -492,9 +498,13 @@ export default function App() {
         )}
 
         {/* Main Tab Rendering Page Outlet with padding constraints */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50 dark:bg-slate-950/40 text-slate-750">
+        <main className="flex-1 overflow-y-auto p-4 pb-24 md:p-6 bg-slate-50 dark:bg-slate-950/40 text-slate-750 relative overflow-hidden">
           
-          <div className="h-full max-w-7xl mx-auto space-y-6">
+          {/* Ambient Glassmorphism Glow Highlights */}
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-emerald-500/5 dark:bg-emerald-500/10 glow-blur -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full bg-amber-500/5 dark:bg-amber-400/5 glow-blur translate-x-1/2 translate-y-1/2 pointer-events-none" />
+          
+          <div className="h-full max-w-7xl mx-auto space-y-6 relative z-10">
             
             {activeTab === 'dashboard' && (
               <DashboardView
@@ -516,6 +526,7 @@ export default function App() {
                 services={services}
                 addAppointment={addAppointment}
                 updateAppointmentStatus={updateAppointmentStatus}
+                deleteAppointment={deleteAppointment}
                 triggerNotification={triggerNotification}
                 userRole={userRole}
               />

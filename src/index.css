@@ -1,6 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Playfair+Display:ital,wght@0,400..700;1,400..700&display=swap');
 @import "tailwindcss";
 
+@variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-display: 'Playfair Display', serif;
@@ -10,9 +12,22 @@
 @layer base {
   body {
     font-family: var(--font-sans);
-    background-color: #f7f9fc;
+    background-color: #eef2f6; /* Deeper cool slate background for gorgeous contrast */
     color: #1a202c;
     transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  .dark body {
+    background-color: #0b0f19;
+    color: #f1f5f9;
+  }
+
+  /* Subtle coloring for cards and boxes in light mode to make them highly visible & premium */
+  div.bg-white, 
+  section.bg-white, 
+  nav.bg-white,
+  main .bg-white:not(input):not(select):not(textarea):not(button) {
+    background-color: #f8fafc; /* Beautiful soft slate-blue off-white coloration */
+    border-color: #cbd5e1; /* Clearer, premium distinct borders */
   }
 }
 

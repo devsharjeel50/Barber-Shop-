@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   DollarSign, 
   TrendingUp, 
+  TrendingDown,
   Calendar, 
   Filter, 
   Download, 
@@ -28,7 +29,30 @@ export default function EarningReportView({
   userRole,
   triggerNotification,
 }: EarningReportViewProps) {
-  const [selectedMonth, setSelectedMonth] = useState<string>('2026-06'); // June 2026
+  // Generate past 12 months starting from July 2026 backwards
+  const monthsList = useMemo(() => {
+    const list = [];
+    const baseDate = new Date('2026-07-01'); // centered around current app date context
+    let year = baseDate.getFullYear();
+    let month = baseDate.getMonth();
+
+    for (let i = 0; i < 12; i++) {
+      const displayMonth = month + 1;
+      const monthStr = displayMonth < 10 ? `0${displayMonth}` : `${displayMonth}`;
+      const value = `${year}-${monthStr}`;
+      const label = new Date(year, month, 1).toLocaleString('en-US', { month: 'long', year: 'numeric' });
+      list.push({ value, label });
+      
+      month--;
+      if (month < 0) {
+        month = 11;
+        year--;
+      }
+    }
+    return list;
+  }, []);
+
+  const [selectedMonth, setSelectedMonth] = useState<string>(monthsList[0]?.value || '2026-07');
   const [selectedReceipt, setSelectedReceipt] = useState<Payment | null>(null);
 
   // Authenticate Admin access (defensive RBAC checking)
@@ -77,6 +101,66 @@ export default function EarningReportView({
       online,
     };
   }, [filteredPayments]);
+
+  // Compute month-over-month growth rate dynamically
+  const growthStats = useMemo(() => {
+    const [yearStr, monthStr] = selectedMonth.split('-');
+    let year = parseInt(yearStr);
+    let month = parseInt(monthStr); // 1-indexed
+
+    // Decrement month to get previous month
+    month--;
+    if (month === 0) {
+      month = 12;
+      year--;
+    }
+    const prevMonthStr = `${year}-${month < 10 ? '0' + month : month}`;
+
+    const currentMonthRev = reportStats.totalRev;
+    const prevMonthPayments = payments.filter(p => p.date.startsWith(prevMonthStr));
+    const prevMonthRev = prevMonthPayments.reduce((acc, curr) => acc + curr.totalAmount, 0);
+
+    let percentageChange = 0;
+    let isPositive = true;
+    let label = '';
+
+    if (prevMonthRev === 0) {
+      if (currentMonthRev === 0) {
+        percentageChange = 0;
+        isPositive = true;
+        label = '0% change';
+      } else {
+        percentageChange = 100;
+        isPositive = true;
+        label = 'New month peak (+100%)';
+      }
+    } else {
+      const change = ((currentMonthRev - prevMonthRev) / prevMonthRev) * 100;
+      percentageChange = Math.abs(Number(change.toFixed(1)));
+      isPositive = change >= 0;
+      label = `${isPositive ? '+' : '-'}${percentageChange}% vs previous month`;
+    }
+
+    return {
+      prevMonthRev,
+      percentageChange,
+      isPositive,
+      label,
+    };
+  }, [selectedMonth, reportStats.totalRev, payments]);
+
+  // Compute payment method percentages
+  const methodPercentages = useMemo(() => {
+    const total = reportStats.totalRev;
+    if (total === 0) {
+      return { cashPct: 0, cardPct: 0, onlinePct: 0 };
+    }
+    return {
+      cashPct: Math.round((reportStats.cash / total) * 100),
+      cardPct: Math.round((reportStats.card / total) * 100),
+      onlinePct: Math.round((reportStats.online / total) * 100),
+    };
+  }, [reportStats]);
 
   const handlePrintReceipt = (receipt: Payment) => {
     triggerNotification('Receipt Generated', `Printing Invoice summary receipt #${receipt.id}...`, 'info');
@@ -152,9 +236,11 @@ export default function EarningReportView({
               onChange={(e) => setSelectedMonth(e.target.value)}
               className="bg-transparent border-none text-slate-700 dark:text-slate-200 font-bold focus:outline-none cursor-pointer"
             >
-              <option value="2026-06">June 2026</option>
-              <option value="2026-05">May 2026</option>
-              <option value="2026-04">April 2026</option>
+              {monthsList.map(m => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -179,9 +265,19 @@ export default function EarningReportView({
           <p className="text-3xl font-black text-slate-800 dark:text-slate-100 font-mono mt-1">
             Rs. {reportStats.totalRev}
           </p>
-          <div className="flex items-center gap-1 text-xs text-emerald-500 font-bold mt-2">
-            <TrendingUp className="w-4 h-4" />
-            +8.3% vs previous month
+          <div className={`flex items-center gap-1 text-xs font-bold mt-2 ${
+            growthStats.percentageChange === 0
+              ? 'text-slate-400'
+              : growthStats.isPositive 
+              ? 'text-emerald-550 dark:text-emerald-400' 
+              : 'text-rose-500 dark:text-rose-450'
+          }`}>
+            {growthStats.isPositive ? (
+              <TrendingUp className="w-4 h-4 text-emerald-500 shrink-0" />
+            ) : (
+              <TrendingDown className="w-4 h-4 text-rose-500 shrink-0" />
+            )}
+            <span>{growthStats.label}</span>
           </div>
         </div>
 
@@ -201,18 +297,53 @@ export default function EarningReportView({
           <p className="text-xs font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
             Payment Methods Breakdown
           </p>
-          <div className="space-y-1.5 mt-2">
-            <div className="flex items-center justify-between text-xs font-mono font-medium">
-              <span className="text-slate-400 text-[11px]">💵 Cash:</span>
-              <span className="text-slate-700 dark:text-slate-200 font-bold">Rs. {reportStats.cash}</span>
+          <div className="space-y-3 mt-2.5">
+            {/* Cash */}
+            <div>
+              <div className="flex items-center justify-between text-xs font-mono font-medium mb-1">
+                <span className="text-slate-450 text-[11px] flex items-center gap-1">💵 Cash:</span>
+                <span className="text-slate-755 dark:text-slate-200 font-bold">
+                  Rs. {reportStats.cash} <span className="text-slate-400 font-normal text-[10px]">({methodPercentages.cashPct}%)</span>
+                </span>
+              </div>
+              <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                <div 
+                  className="bg-amber-500 h-full rounded-full transition-all duration-500" 
+                  style={{ width: `${methodPercentages.cashPct}%` }}
+                />
+              </div>
             </div>
-            <div className="flex items-center justify-between text-xs font-mono font-medium">
-              <span className="text-slate-400 text-[11px]">💳 Card:</span>
-              <span className="text-slate-700 dark:text-slate-200 font-bold">Rs. {reportStats.card}</span>
+
+            {/* Card */}
+            <div>
+              <div className="flex items-center justify-between text-xs font-mono font-medium mb-1">
+                <span className="text-slate-455 text-[11px] flex items-center gap-1">💳 Card:</span>
+                <span className="text-slate-755 dark:text-slate-200 font-bold">
+                  Rs. {reportStats.card} <span className="text-slate-400 font-normal text-[10px]">({methodPercentages.cardPct}%)</span>
+                </span>
+              </div>
+              <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                <div 
+                  className="bg-blue-500 h-full rounded-full transition-all duration-500" 
+                  style={{ width: `${methodPercentages.cardPct}%` }}
+                />
+              </div>
             </div>
-            <div className="flex items-center justify-between text-xs font-mono font-medium">
-              <span className="text-slate-400 text-[11px]">📱 UPI/Online:</span>
-              <span className="text-emerald-600 dark:text-emerald-400 font-bold">Rs. {reportStats.online}</span>
+
+            {/* UPI/Online */}
+            <div>
+              <div className="flex items-center justify-between text-xs font-mono font-medium mb-1">
+                <span className="text-slate-455 text-[11px] flex items-center gap-1">📱 UPI/Online:</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                  Rs. {reportStats.online} <span className="text-slate-400 font-normal text-[10px]">({methodPercentages.onlinePct}%)</span>
+                </span>
+              </div>
+              <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                <div 
+                  className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
+                  style={{ width: `${methodPercentages.onlinePct}%` }}
+                />
+              </div>
             </div>
           </div>
         </div>

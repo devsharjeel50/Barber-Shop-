@@ -50,9 +50,14 @@ export default function DashboardView({
 
   // Statistics Calculation
   const stats = useMemo(() => {
-    // Current month: June 2026
-    const j2026Payments = payments.filter(p => p.date.startsWith('2026-06'));
-    const totalEarnings = j2026Payments.reduce((acc, curr) => acc + curr.totalAmount, 0);
+    // Current local month YYYY-MM prefix (e.g. 2026-07)
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const currentMonthPrefix = `${y}-${m}`;
+
+    const currentMonthPayments = payments.filter(p => p.date.startsWith(currentMonthPrefix));
+    const totalEarnings = currentMonthPayments.reduce((acc, curr) => acc + curr.totalAmount, 0);
     
     // Total historical earnings
     const grandEarnings = payments.reduce((acc, curr) => acc + curr.totalAmount, 0);
@@ -286,142 +291,9 @@ export default function DashboardView({
       {/* Main Grid: Dashboard Widgets */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Left Columns - Charts and Urgent Alerts (Span 2) */}
+        {/* Left Columns - Quick Schedule (Span 2) */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* Aesthetic SVG Sales Trend Chart */}
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 font-display">
-                  Weekly Sales Analytics (Simulated)
-                </h3>
-                <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                  Visual projection of sales performance and peak hourly client visits.
-                </p>
-              </div>
-              <span className="text-xs font-semibold px-2.5 py-1 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg border border-slate-200 dark:border-slate-700">
-                Weekly Summary
-              </span>
-            </div>
-
-            {/* Custom SVG Line Chart */}
-            <div className="h-48 w-full relative pt-2">
-              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                <div className="h-px bg-slate-100 dark:bg-slate-800/80 w-full"></div>
-                <div className="h-px bg-slate-100 dark:bg-slate-800/80 w-full"></div>
-                <div className="h-px bg-slate-100 dark:bg-slate-800/80 w-full"></div>
-                <div className="h-px bg-slate-100 dark:bg-slate-800/80 w-full"></div>
-              </div>
-
-              {/* Chart SVG */}
-              <svg viewBox="0 0 500 120" className="w-full h-full overflow-visible">
-                {/* Gradient area */}
-                <defs>
-                  <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#10b981" stopOpacity="0.25" />
-                    <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
-                  </linearGradient>
-                </defs>
-
-                {/* Area path */}
-                <path
-                  d="M 10,110 L 10,65 Q 90,30 170,85 T 330,25 Q 410,75 490,40 L 490,110 Z"
-                  fill="url(#chartGrad)"
-                />
-
-                {/* Smooth spline path */}
-                <path
-                  d="M 10,65 Q 90,30 170,85 T 330,25 Q 410,75 490,40"
-                  fill="none"
-                  stroke="#10b981"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                />
-
-                {/* Data Points */}
-                <circle cx="10" cy="65" r="4" fill="#10b981" stroke="#ffffff" strokeWidth="1.5" />
-                <circle cx="170" cy="85" r="4" fill="#10b981" stroke="#ffffff" strokeWidth="1.5" />
-                <circle cx="330" cy="25" r="4" fill="#10b981" stroke="#ffffff" strokeWidth="1.5" />
-                <circle cx="490" cy="40" r="4" fill="#10b981" stroke="#ffffff" strokeWidth="1.5" />
-              </svg>
-
-              {/* X Axis Labels */}
-              <div className="flex justify-between mt-3 px-2 text-[10px] font-mono font-bold text-slate-400 dark:text-slate-500">
-                <span>MON</span>
-                <span>TUE</span>
-                <span>WED</span>
-                <span>THU</span>
-                <span>FRI</span>
-                <span>SAT</span>
-                <span>SUN</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4 border-t border-slate-100 dark:border-slate-800/80 pt-4 mt-4">
-              <div className="text-center">
-                <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase leading-normal">
-                  Highest Sales Day
-                </p>
-                <p className="text-sm font-bold text-slate-700 dark:text-slate-200 mt-0.5">
-                  Friday (Rs. 1,450)
-                </p>
-              </div>
-              <div className="text-center border-x border-slate-100 dark:border-slate-800/80">
-                <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase leading-normal">
-                  Avg Ticket Value
-                </p>
-                <p className="text-sm font-bold text-emerald-500 dark:text-emerald-400 mt-0.5">
-                  Rs. 280
-                </p>
-              </div>
-              <div className="text-center">
-                <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase leading-normal">
-                  Idle Wait Time
-                </p>
-                <p className="text-sm font-bold text-emerald-500 mt-0.5">
-                  &lt; 10 min
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Push Notification Trigger Component */}
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all space-y-4">
-            <div>
-              <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 font-display flex items-center gap-2">
-                <Zap className="text-amber-500 w-5 h-5 fill-amber-500" />
-                Broadcast Urgent Push Notification / Alert
-              </h3>
-              <p className="text-xs text-slate-400 dark:text-slate-500">
-                Generate dynamic real-time system alerts and browser native push notifications.
-              </p>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-3">
-              <input
-                id="urgent-alert-input"
-                type="text"
-                value={alertText}
-                onChange={(e) => setAlertText(e.target.value)}
-                placeholder="Write urgent emergency alert text..."
-                className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-xs rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-              />
-              <button
-                id="btn-simulate-alert"
-                onClick={handleSimulateAlert}
-                className="cursor-pointer bg-slate-900 dark:bg-emerald-600 hover:bg-slate-800 dark:hover:bg-emerald-700 py-2.5 px-4 rounded-xl text-white text-xs font-semibold flex items-center justify-center gap-2 transition-transform active:scale-95"
-              >
-                <Send className="w-3.5 h-3.5" />
-                Trigger Alert Now
-              </button>
-            </div>
-            
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
-              *Requires granting notification permission. Alerts are automatically added to the Activity Log & Alerts system widget.
-            </p>
-          </div>
-
           {/* Quick Schedule Pending Appointments Quick Look */}
           <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
             <div className="flex items-center justify-between mb-4">

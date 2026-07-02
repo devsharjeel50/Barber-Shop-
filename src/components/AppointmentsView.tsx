@@ -25,6 +25,7 @@ interface AppointmentsViewProps {
   services: Service[];
   addAppointment: (appt: Omit<Appointment, 'id'>) => void;
   updateAppointmentStatus: (id: string, status: Appointment['status']) => void;
+  deleteAppointment: (id: string) => void;
   triggerNotification: (title: string, message: string, type: 'info' | 'urgent' | 'success' | 'alert') => void;
   userRole: string;
 }
@@ -35,6 +36,7 @@ export default function AppointmentsView({
   services,
   addAppointment,
   updateAppointmentStatus,
+  deleteAppointment,
   triggerNotification,
   userRole,
 }: AppointmentsViewProps) {
@@ -42,6 +44,7 @@ export default function AppointmentsView({
   const [barberFilter, setBarberFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // Form states
   const [formCustomerId, setFormCustomerId] = useState('');
@@ -237,18 +240,51 @@ export default function AppointmentsView({
                     </div>
                   </div>
 
-                  {/* Status Badges */}
-                  <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
-                    appt.status === 'pending'
-                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400'
-                      : appt.status === 'confirmed'
-                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-400'
-                      : appt.status === 'completed'
-                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
-                      : 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-450'
-                  }`}>
-                    {appt.status}
-                  </span>
+                  {/* Status Badges & Delete */}
+                  <div className="flex items-center gap-1.5">
+                    {deletingId === appt.id ? (
+                      <div className="flex items-center gap-1.5 bg-rose-50 dark:bg-rose-950/40 px-2 py-1 rounded-xl border border-rose-200 dark:border-rose-900/50 animate-pulse">
+                        <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400">Delete?</span>
+                        <button
+                          onClick={() => {
+                            deleteAppointment(appt.id);
+                            setDeletingId(null);
+                            triggerNotification('Appointment Deleted', `Deleted booking for ${appt.customerName}`, 'success');
+                          }}
+                          className="text-[10px] font-bold text-white bg-rose-650 hover:bg-rose-700 px-2 py-0.5 rounded-lg transition-all cursor-pointer"
+                        >
+                          Yes
+                        </button>
+                        <button
+                          onClick={() => setDeletingId(null)}
+                          className="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 px-2 py-0.5 rounded-lg transition-all cursor-pointer"
+                        >
+                          No
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
+                          appt.status === 'pending'
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400'
+                            : appt.status === 'confirmed'
+                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-400'
+                            : appt.status === 'completed'
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
+                            : 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-450'
+                        }`}>
+                          {appt.status}
+                        </span>
+                        <button
+                          onClick={() => setDeletingId(appt.id)}
+                          className="cursor-pointer p-1 text-slate-400 hover:text-rose-600 dark:text-slate-500 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors"
+                          title="Delete Appointment"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 {/* Service Details */}
